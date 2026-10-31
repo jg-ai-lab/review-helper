@@ -181,9 +181,10 @@ def summary_sheet(wb, year, month):
 
 def sample_rows():
     rng = random.Random(20261101)
-    rows, day = [], date(2026, 9, 1)
+    rows, day = [], date(2026, 1, 1)
     while day <= date(2026, 10, 31):
-        for _ in range(rng.randint(3, 6)):
+        busy = 1 if day.weekday() >= 5 or 4 <= day.month <= 5 else 0
+        for _ in range(rng.randint(1, 2) + busy):
             name, _ = rng.choice(SAMPLE_ITEMS)
             rows.append((day, name, rng.choice([1, 1, 1, 2, 3]), rng.choice(["카드"] * 4 + ["현금", "계좌이체"])))
         day += timedelta(days=1)
