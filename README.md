@@ -6,6 +6,8 @@
 
 [경남 진주 영업 지역과 첫 제안문](OUTREACH.md) · [배포 안내](DEPLOYMENT.md) · [의뢰서 양식](samples/request.html) · [크몽·숨고 등록 문안](MARKETPLACE.md) · [엑셀 정리 샘플](samples/excel.html)
 
+[주문·납품 안내 문구](MESSAGES.md) · [엑셀 납품 연습](practice/excel/README.md)
+
 ## 실행
 
 Python 3만 있으면 됩니다. 외부 패키지나 API 키는 필요 없습니다.
