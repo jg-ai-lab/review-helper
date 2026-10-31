@@ -12,11 +12,9 @@ GitHub Pages 배포 워크플로는 `main`에 푸시할 때 실행됩니다.
 
 위 주소는 예상 주소이며, Actions 배포 성공과 HTTP 응답 확인 전에는 공개 완료로 간주하지 않습니다. 커스텀 도메인이 설정돼 있으면 실제 주소가 달라집니다.
 
-## 현재 확인 상태
+## 현재 확인 상태 · 2026년 11월 1일
 
-GitHub API와 공개 사이트 확인 요청이 환경 프록시에서 거부되어 배포 성공 여부를 확인하지 못했습니다. 환경 설정에 저장된 `api.github.com`, `jg-ai-lab.github.io` 도메인 추가 초안을 검토·저장하고 환경에 적용해야 합니다. 초안 저장만으로 현재 네트워크 정책이 바뀌지는 않습니다.
-
-적용 후에는 GitHub API로 Pages 설정을 조회하고, 필요하면 `build_type: workflow`로 활성화한 다음 배포 실행 결과를 확인합니다. API 인증·권한 오류가 별도로 발생하면 그 결과에 따라 진단합니다. 현재 프록시 거부만으로 GitHub 권한이 없다고 단정하지 않습니다.
+저장소는 공개 상태입니다. 2026년 10월 31일 `Deploy public sample` 실행 2건이 모두 `actions/configure-pages` 단계에서 실패했습니다. 오류는 `Get Pages site failed ... Not Found`로, 저장소에 Pages가 아직 활성화되지 않은 상태입니다. 위 예상 주소 3개는 모두 HTTP 404를 반환했습니다.
 
 직접 설정할 경우 [Pages 설정](https://github.com/jg-ai-lab/review-helper/settings/pages)에서 Source를 GitHub Actions로 선택하고 [배포 실행 목록](https://github.com/jg-ai-lab/review-helper/actions/workflows/pages.yml)에서 실행합니다. 성공한 실행이 표시된 뒤 실제 공개 URL로 접속해야 완료입니다.
 
