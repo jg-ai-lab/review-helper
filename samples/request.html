@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>소개 페이지 제작 · 의뢰서 작성</title>
+<style>*{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#f7f1e7;color:#362f26;margin:0}main{max-width:720px;margin:auto;padding:30px 20px}h1{font-size:32px}p{line-height:1.8}form{background:#fffaf2;padding:24px;border-radius:16px}label{display:block;margin:18px 0 6px;font-weight:600}input,textarea,button{font:inherit;padding:12px;border:1px solid #cfc7bb;border-radius:8px;width:100%}textarea{min-height:100px}button{margin-top:24px;background:#354b3d;color:white;cursor:pointer}a{color:#354b3d}.note{font-size:14px;color:#625b50}.check{display:flex;align-items:start;gap:10px}.check input{width:auto;margin-top:5px}#status{font-weight:600}</style>
+<main><a href="cafe.html">← 샘플 보기</a><h1>소개 페이지 제작 의뢰서</h1><p>필요한 내용을 적고 의뢰서 파일을 내려받으세요. 이 양식은 서버로 전송되지 않습니다. 내려받은 파일을 제작자와 합의한 연락 채널로 보내야 접수가 진행됩니다.</p><form id="brief">
+<label for="business">가게·브랜드 이름 *</label><input id="business" name="가게명" required maxlength="100" autocomplete="organization">
+<label for="contact">회신받을 이메일 *</label><input id="contact" name="회신 이메일" type="email" required maxlength="200" autocomplete="email">
+<label for="intro">가게 소개와 원하는 페이지 *</label><textarea id="intro" name="소개와 요청" required maxlength="3000" placeholder="어떤 가게인가요? 페이지에서 가장 알리고 싶은 내용을 적어주세요."></textarea>
+<label for="menu">대표 메뉴·서비스와 가격</label><textarea id="menu" name="메뉴와 가격" maxlength="3000" placeholder="기본 범위는 최대 6개입니다."></textarea>
+<label for="hours">운영 시간·휴무일</label><input id="hours" name="운영 시간" maxlength="300">
+<label for="map">지도 링크</label><input id="map" name="지도 링크" type="url" placeholder="https://" maxlength="1000">
+<label for="public">페이지에 공개할 연락처</label><input id="public" name="공개 연락처" maxlength="200"><p class="note">회신 이메일은 별도 합의 없이 제작 페이지에 공개하지 않습니다.</p>
+<label for="photos">사진·로고 자료 준비 상태</label><textarea id="photos" name="사진과 로고" maxlength="2000" placeholder="보유 사진 수와 전달 방법을 적어주세요. 사진 파일은 합의한 채널로 별도 전달해주세요. 비밀번호나 비공개 공유 토큰은 적지 마세요."></textarea>
+<label for="deadline">희망 완료일</label><input id="deadline" name="희망 완료일" type="date">
+<label for="budget">예산·추가 요청</label><textarea id="budget" name="예산과 추가 요청" maxlength="2000" placeholder="기본 시작 견적 5만 원. 범위·일정 확인 후 확정합니다."></textarea>
+<label class="check"><input type="checkbox" required><span>자료의 사용 권한을 확인하고, 제출 전 제작자와 범위·비용·일정·자료 처리 방법을 합의하겠습니다. *</span></label>
+<button type="submit">의뢰서 내려받기 (.txt)</button><p id="status" role="status"></p><p class="note">입력 내용은 브라우저 저장소에 보관하지 않습니다. 다운로드 파일에는 이메일 등 입력 정보가 들어 있으므로 공개 저장소에 올리지 마세요. 새로고침하면 작성 내용이 사라질 수 있습니다. 이 양식 작성만으로 계약이나 결제가 이루어지지 않습니다.</p></form></main>
+<script>
+document.querySelector('#brief').addEventListener('submit',event=>{event.preventDefault();const data=new FormData(event.target);const text='소개 페이지 제작 의뢰서\n\n'+Array.from(data,([name,value])=>name+'\n'+String(value).trim()).join('\n\n');const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='website-request.txt';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);document.querySelector('#status').textContent='파일을 내려받았습니다. 제작자와 합의한 연락 채널로 보내주세요. 아직 접수된 상태는 아닙니다.'});
+</script></html>
