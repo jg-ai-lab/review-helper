@@ -76,7 +76,12 @@
 
 ## 대표 이미지 구성안
 
-1장(대표)은 제작 완료: [소개 페이지](marketing/kmong/web-main.png), [엑셀 정리](marketing/kmong/excel-main.png). 1304×976(652×488의 2배) PNG이며, 원본 HTML을 고친 뒤 Edge 헤드리스로 다시 캡처할 수 있습니다.
+5장 모두 제작 완료. 각 장은 1304×976(652×488의 2배) PNG입니다.
+
+- 소개 페이지: [대표](marketing/kmong/web-main.png) · [2](marketing/kmong/web-02.png) · [3](marketing/kmong/web-03.png) · [4](marketing/kmong/web-04.png) · [5](marketing/kmong/web-05.png) · [상세 설명용 세로 이미지](marketing/kmong/web-detail.png)
+- 엑셀 정리: [대표](marketing/kmong/excel-main.png) · [2](marketing/kmong/excel-02.png) · [3](marketing/kmong/excel-03.png) · [4](marketing/kmong/excel-04.png) · [5](marketing/kmong/excel-05.png) · [상세 설명용 세로 이미지](marketing/kmong/excel-detail.png)
+
+세로 이미지는 1~5장을 652×2440으로 이은 것으로, 상세 이미지 규격(가로 652px 이상, 세로 3,000px 이하)에 맞춥니다. 2~5장은 `python marketing/kmong/render_details.py`로 다시 만듭니다. 엑셀 이미지의 숫자는 샘플 데이터와 스크립트 결과에서 직접 가져옵니다.
 
 크몽 대표 이미지는 목록에서 작게 보이므로 한 장에 메시지 하나, 큰 글씨 두 줄 이내로 만듭니다. 규격(현재 권장 크기·비율)은 등록 화면에서 확인합니다. 모든 이미지에 실제 사례가 아닌 샘플임을 작게 표시합니다.
 
@@ -112,6 +117,6 @@
 - [x] 서비스 A 샘플 공개 주소 확인 후 대표 이미지 제작
 - [x] 서비스 B용 가상 데이터 정리 전후 예시 제작
 - [x] 두 서비스 대표 이미지(1장) 제작
-- [ ] 상세 이미지 2~5장 제작
+- [x] 상세 이미지 2~5장 제작
 - [ ] 가격을 수수료 반영 실수령액 기준으로 재확인
 - [ ] 문의 응답 가능 시간 정하기
