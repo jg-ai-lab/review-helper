@@ -87,6 +87,8 @@ def answer(question, items):
                      {"role": "user", "content": f"[자료]\n{context}\n\n[질문]\n{question}"}],
     })
     text = re.sub(r"<think>.*?</think>", "", res["message"]["content"], flags=re.S).strip()
+    if "찾지 못했" in text:
+        return {"answer": text, "sources": []}
     sources = []
     for s, it in hits:
         if it["doc"] not in [x["doc"] for x in sources]:
