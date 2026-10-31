@@ -24,7 +24,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-```n
+```
 ## 수익화 방향
 
 첫 달 기본 목표 예시: 5만 원의 작은 웹 제작 작업 2건. 실제 수익은 고객 확보와 납품 여부에 달려 있습니다. 매출에서 수수료·비용·해당 세금을 별도로 고려하세요.
