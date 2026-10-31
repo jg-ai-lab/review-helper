@@ -4,7 +4,7 @@
 
 [첫 서비스 범위·견적·4주 실행 계획](FIRST-SERVICE.md) · [가상 카페 제작 샘플](samples/cafe.html)
 
-[연남·망원 영업 지역과 첫 제안문](OUTREACH.md) · [배포 안내](DEPLOYMENT.md) · [의뢰서 양식](samples/request.html)
+[경남 진주 영업 지역과 첫 제안문](OUTREACH.md) · [배포 안내](DEPLOYMENT.md) · [의뢰서 양식](samples/request.html)
 
 ## 실행
 
