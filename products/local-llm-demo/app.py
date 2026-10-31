@@ -1,34 +1,45 @@
-"""인터넷 없이 돌아가는 사내 규정 Q&A 데모 (서비스 D).
+"""인터넷 없이 돌아가는 사내 규정 Q&A (서비스 D).
 
-이 PC의 Ollama(127.0.0.1:11434)만 호출합니다. 외부 패키지가 필요 없습니다.
+이 PC의 Ollama(127.0.0.1:11434)만 호출합니다. PDF를 읽을 때만 pypdf가 필요합니다.
 
 사용법:
-  python app.py index          docs/ 문서를 잘라 임베딩하고 index.json 저장
+  python app.py                색인이 없거나 문서가 바뀌었으면 색인 후 채팅 화면 열기 (exe 더블클릭과 같음)
+  python app.py index          docs/ 문서(.md .txt .pdf)를 잘라 임베딩하고 index.json 저장
   python app.py ask "질문"      터미널에서 한 번 질문
-  python app.py serve          http://127.0.0.1:8765 에서 채팅 화면 열기
+  python app.py serve          채팅 화면만 열기
+
+설정은 실행 파일 옆 config.json으로 바꿉니다 (company, contact, docs, port, chat_model).
 """
 import json
 import math
 import re
 import sys
+import urllib.error
 import urllib.request
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-HERE = Path(__file__).parent
-DOCS = HERE / "docs"
+HERE = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+CONFIG = {"company": "샘플테크(가상 회사)", "contact": "인사팀", "docs": "docs", "port": 8765,
+          "chat_model": "qwen3:8b"}
+if (HERE / "config.json").exists():
+    CONFIG.update(json.loads((HERE / "config.json").read_text(encoding="utf-8-sig")))
+DOCS = HERE / CONFIG["docs"]
 INDEX = HERE / "index.json"
+DOC_TYPES = (".md", ".txt", ".pdf")
 OLLAMA = "http://127.0.0.1:11434"
 EMBED_MODEL = "bge-m3"
-CHAT_MODEL = "qwen3:8b"
+CHAT_MODEL = CONFIG["chat_model"]
 TOP_K = 4
 MIN_SCORE = 0.45
 THINK = True  # 추론 모드: 느리지만 예외 조건을 더 잘 읽음
 
-SYSTEM = """너는 '샘플테크(가상 회사)'의 사내 규정 안내 도우미다.
+NOT_FOUND = f"규정 문서에서 찾지 못했습니다. {CONFIG['contact']}에 확인해 주세요."
+SYSTEM = f"""너는 '{CONFIG['company']}'의 사내 규정 안내 도우미다.
 아래 [자료]에 있는 내용만 근거로 한국어로 짧고 정확하게 답한다.
 - 답의 근거가 된 문서 이름을 문장 끝에 [문서명] 형식으로 붙인다.
-- 자료에 없는 내용은 추측하지 말고 "규정 문서에서 찾지 못했습니다. 인사팀에 확인해 주세요."라고 답한다.
+- 자료에 없는 내용은 추측하지 말고 "{NOT_FOUND}"라고 답한다.
 - 숫자(일수·금액·기한)는 자료에 적힌 그대로 쓴다.
 - 괄호 안이나 '단', '~는 제외' 같은 예외 조건(지역·대상·기간별로 다른 값)을 먼저 확인하고, 질문 조건에 맞는 값을 답한다."""
 
@@ -36,28 +47,62 @@ SYSTEM = """너는 '샘플테크(가상 회사)'의 사내 규정 안내 도우�
 def post(path, payload):
     req = urllib.request.Request(OLLAMA + path, json.dumps(payload).encode(),
                                  {"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=300) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=300) as r:
+            return json.load(r)
+    except urllib.error.URLError as e:
+        raise SystemExit("Ollama에 연결할 수 없습니다. 작업 표시줄에서 Ollama가 켜져 있는지 확인하고 "
+                         f"'설치.bat'을 다시 실행해 주세요. ({e.reason})")
 
 
 def embed(texts):
     return post("/api/embed", {"model": EMBED_MODEL, "input": texts})["embeddings"]
 
 
+def read_text(path):
+    if path.suffix.lower() == ".pdf":
+        from pypdf import PdfReader
+        return "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
+    for enc in ("utf-8-sig", "cp949"):
+        try:
+            return path.read_text(encoding=enc)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError(f"{path.name}: 글자 인코딩을 읽을 수 없습니다")
+
+
 def chunks(path):
-    """제목 아래 목록 항목·표 행을 2~3개씩 묶어 조각으로 나눈다."""
-    text = path.read_text(encoding="utf-8")
-    title = text.splitlines()[0].lstrip("# ").strip()
-    lines = [l for l in text.splitlines()[1:] if l.strip() and not re.match(r"^\|\s*-", l)]
-    size = 3
-    for i in range(0, len(lines), size):
-        yield title, "\n".join(lines[i:i + size])
+    """마크다운은 제목 아래 줄을 3개씩, 그 밖의 문서는 약 400자씩 묶어 조각으로 나눈다."""
+    lines = [l.strip() for l in read_text(path).splitlines()
+             if l.strip() and not re.match(r"^\|\s*-", l.strip())]
+    if not lines:
+        return
+    if lines[0].startswith("#"):
+        title, lines = lines[0].lstrip("# ").strip(), lines[1:]
+    else:
+        title = path.stem
+    buf = []
+    for line in lines:
+        buf.append(line)
+        full = len(buf) >= 3 if path.suffix.lower() == ".md" else sum(map(len, buf)) >= 400
+        if full:
+            yield title, "\n".join(buf)
+            buf = []
+    if buf:
+        yield title, "\n".join(buf)
+
+
+def doc_files():
+    return sorted(p for p in DOCS.rglob("*") if p.suffix.lower() in DOC_TYPES)
 
 
 def build_index():
-    items = [{"doc": p.name, "title": t, "text": c}
-             for p in sorted(DOCS.glob("*.md")) for t, c in chunks(p)]
-    vecs = embed([f"{it['title']}\n{it['text']}" for it in items])
+    items = [{"doc": p.name, "title": t, "text": c} for p in doc_files() for t, c in chunks(p)]
+    if not items:
+        raise SystemExit(f"'{DOCS.name}' 폴더에 읽을 문서(.md .txt .pdf)가 없습니다.")
+    vecs = []
+    for i in range(0, len(items), 32):
+        vecs += embed([f"{it['title']}\n{it['text']}" for it in items[i:i + 32]])
     for it, v in zip(items, vecs):
         it["vec"] = v
     INDEX.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
@@ -78,7 +123,7 @@ def search(question, items):
 def answer(question, items):
     hits = search(question, items)
     if not hits:
-        return {"answer": "규정 문서에서 찾지 못했습니다. 인사팀에 확인해 주세요.", "sources": []}
+        return {"answer": NOT_FOUND, "sources": []}
     context = "\n\n".join(f"[{it['doc']} · {it['title']}]\n{it['text']}" for _, it in hits)
     res = post("/api/chat", {
         "model": CHAT_MODEL, "stream": False, "think": THINK,
@@ -93,7 +138,8 @@ def answer(question, items):
     for s, it in hits:
         if it["doc"] not in [x["doc"] for x in sources]:
             sources.append({"doc": it["doc"], "title": it["title"], "score": round(s, 2), "text": it["text"]})
-    return {"answer": text, "sources": sources}
+    cited = [x for x in sources if Path(x["doc"]).stem in text or x["title"] in text]
+    return {"answer": text, "sources": cited or sources}
 
 
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -108,8 +154,8 @@ button{padding:0 18px;border:0;border-radius:10px;background:#5b6b4a;color:#fff;
 details{margin-top:6px}summary{cursor:pointer}pre{white-space:pre-wrap;background:#f3efe6;padding:8px;border-radius:8px;font-size:12px}
 .warn{font-size:12px;color:#9a8f80;margin-top:18px}</style>
 <main><span class=badge>인터넷 연결 없이 이 PC에서만 실행</span><h1>사내 규정 도우미</h1>
-<p class=sub>샘플테크(가상 회사) 규정 문서 20개에서 찾아 답하고, 근거 문서를 함께 보여 줍니다.</p>
-<form id=f><input id=q placeholder="예: 배우자 출산 휴가는 며칠이에요?" autocomplete=off><button>질문</button></form>
+<p class=sub>__COMPANY__ 규정 문서 __COUNT__개에서 찾아 답하고, 근거 문서를 함께 보여 줍니다.</p>
+<form id=f><input id=q placeholder="궁금한 규정을 물어보세요" autocomplete=off><button>질문</button></form>
 <div id=log></div><p class=warn>AI가 틀릴 수 있습니다. 중요한 내용은 근거 문서를 확인하세요.</p></main>
 <script>
 const f=document.getElementById('f'),q=document.getElementById('q'),log=document.getElementById('log');
@@ -123,8 +169,14 @@ if(r.sources.length){box.insertAdjacentHTML('beforeend','<div class=src>근거 �
 </script></html>"""
 
 
-def serve(items, port=8765):
+def serve(items, port=CONFIG["port"]):
+    page = (PAGE.replace("__COMPANY__", CONFIG["company"])
+            .replace("__COUNT__", str(len({it["doc"] for it in items}))))
+
     class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
         def _send(self, body, ctype):
             data = body.encode()
             self.send_response(200)
@@ -134,22 +186,27 @@ def serve(items, port=8765):
             self.wfile.write(data)
 
         def do_GET(self):
-            self._send(PAGE, "text/html; charset=utf-8")
+            self._send(page, "text/html; charset=utf-8")
 
         def do_POST(self):
             q = json.loads(self.rfile.read(int(self.headers["Content-Length"])))["q"]
             self._send(json.dumps(answer(q, items), ensure_ascii=False), "application/json; charset=utf-8")
 
-    print(f"http://127.0.0.1:{port} 에서 실행 중 (Ctrl+C로 종료)")
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    print(f"http://127.0.0.1:{port} 에서 실행 중입니다. 이 창을 닫으면 종료됩니다.")
+    webbrowser.open(f"http://127.0.0.1:{port}")
+    server.serve_forever()
 
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
-    cmd = sys.argv[1] if len(sys.argv) > 1 else "serve"
-    if cmd == "index":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "start"
+    stale = not INDEX.exists() or any(p.stat().st_mtime > INDEX.stat().st_mtime for p in doc_files())
+    if cmd == "index" or (cmd == "start" and stale):
+        print("문서를 읽는 중입니다. 문서 수에 따라 몇 분 걸릴 수 있어요...")
         print(f"조각 {build_index()}개 색인 완료 → {INDEX.name}")
-        return
+        if cmd == "index":
+            return
     items = json.loads(INDEX.read_text(encoding="utf-8"))
     if cmd == "ask":
         r = answer(" ".join(sys.argv[2:]), items)

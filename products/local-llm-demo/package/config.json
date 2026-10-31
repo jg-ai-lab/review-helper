@@ -1,0 +1,7 @@
+{
+  "company": "샘플테크(가상 회사)",
+  "contact": "인사팀",
+  "docs": "docs",
+  "port": 8765,
+  "chat_model": "qwen3:8b"
+}
