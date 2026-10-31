@@ -17,6 +17,14 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 브라우저에서 실행한 서버의 페이지를 여세요. 수입 기록은 해당 브라우저의 localStorage에 저장됩니다. 월별 조회, 목표 달성률, 기록 삭제, JSON 내보내기를 지원합니다. 내보낸 파일을 가져오는 기능은 아직 없습니다. 공용 기기에서는 개인 수입 정보를 남기지 마세요.
 
+## 샘플·이미지 스크립트
+
+엑셀 정리 예시(`samples/excel/clean_sales.py`)와 크몽 이미지 생성(`marketing/kmong/render_details.py`)은 Pillow·openpyxl이 필요합니다.
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```n
 ## 수익화 방향
 
 첫 달 기본 목표 예시: 5만 원의 작은 웹 제작 작업 2건. 실제 수익은 고객 확보와 납품 여부에 달려 있습니다. 매출에서 수수료·비용·해당 세금을 별도로 고려하세요.
