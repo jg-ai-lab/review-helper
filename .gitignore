@@ -3,3 +3,4 @@ __pycache__/
 
 products/vision-demo/photos/*
 !products/vision-demo/photos/.gitkeep
+products/local-llm-demo/index.json
