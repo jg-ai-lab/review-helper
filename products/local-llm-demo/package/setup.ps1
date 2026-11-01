@@ -48,8 +48,10 @@ try {
 } catch {}
 $model = if ($vramGB -ge 10) { "qwen3:8b" } elseif ($vramGB -ge 6) { "qwen3:4b" } else { "qwen3:1.7b" }
 Write-Host "  NVIDIA 그래픽 메모리: $vramGB GB → 답변 모델 $model"
-if ($vramGB -lt 6) { Write-Host "  그래픽카드가 없거나 작아 작은 모델을 씁니다. 답이 느리거나 정확도가 낮을 수 있습니다." -ForegroundColor Yellow }
+if ($vramGB -lt 6) { Write-Host "  그래픽카드가 없거나 작아 작은 모델을 씁니다. 추론 모드를 끄고, 답이 느리거나 정확도가 낮을 수 있습니다." -ForegroundColor Yellow }
 $config.chat_model = $model
+# 추론 모드는 정확하지만 그래픽카드 없이는 답 하나에 몇 분 걸릴 수 있어 끕니다
+$config | Add-Member -NotePropertyName think -NotePropertyValue ($vramGB -ge 6) -Force
 $config | ConvertTo-Json | Set-Content $configPath -Encoding UTF8
 
 Write-Host "[4/4] 모델 다운로드 (처음 한 번, 수 GB)" -ForegroundColor Cyan
