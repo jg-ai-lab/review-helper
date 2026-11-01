@@ -148,7 +148,6 @@ def parse(name, lines):
     elif "상품명" in flat or "과세" in flat:
         d["종류"] = "영수증"
         parse_receipt(d, toks, rows)
-    check(d)
     return d
 
 
@@ -435,6 +434,8 @@ def main():
                    if catalog_file.exists() else [])
         for d in docs:
             fix(d, catalog)
+    for d in docs:  # 보정한 뒤의 값으로 계산 대조
+        check(d)
     stats, rows = score(docs, json.loads(answer.read_text(encoding="utf-8"))) if answer.exists() else ({}, [])
     out = RESULTS / f"{tag}_변환결과.xlsx"
     save(docs, stats, rows, out, RESULTS / f"{tag}_정확도.md", tag, elapsed)

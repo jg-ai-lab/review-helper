@@ -16,7 +16,7 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller 실패" }
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory $out | Out-Null
 Copy-Item (Join-Path $work "$name.exe") $out
-Copy-Item (Join-Path $pkg "setup.ps1"), (Join-Path $pkg "설치.bat"), (Join-Path $pkg "config.json"), (Join-Path $pkg "사용안내.txt") $out
+Copy-Item (Join-Path $pkg "setup.ps1"), (Join-Path $pkg "설치.bat"), (Join-Path $pkg "config.json"), (Join-Path $pkg "사용안내.txt"), (Join-Path $pkg "확인질문.txt") $out
 Copy-Item (Join-Path $demo "docs") (Join-Path $out "docs") -Recurse
 
 $zip = Join-Path $demo "dist\$name.zip"

@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .venv-ocr/
+.venv-vision/
 
 products/vision-demo/photos/*
 !products/vision-demo/photos/.gitkeep

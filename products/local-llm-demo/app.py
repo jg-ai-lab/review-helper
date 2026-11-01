@@ -10,9 +10,12 @@
 
 채팅 화면의 [문서 관리]에서 문서를 올리거나 빼면 바뀐 부분만 바로 다시 색인합니다.
 뺀 문서는 지우지 않고 '뺀 문서' 폴더로 옮깁니다.
+[답변 점검]에서 확인 질문(확인질문.txt)을 한 번에 돌려 통과·실패 결과표를 '점검결과' 폴더에 CSV로 저장합니다.
 
 설정은 실행 파일 옆 config.json으로 바꿉니다 (company, contact, docs, port, chat_model, think).
 """
+import csv
+import io
 import json
 import math
 import re
@@ -37,6 +40,9 @@ INDEX = HERE / "index.json"
 REMOVED = HERE / "뺀 문서"
 DOC_TYPES = (".md", ".txt", ".pdf")
 MAX_UPLOAD_MB = 50
+CHECKS = HERE / "확인질문.txt"
+CHECK_RESULTS = HERE / "점검결과"
+NONE_MARK = "(없음)"  # 문서에 없는 질문: "찾지 못했습니다"라고 답해야 통과
 OLLAMA = "http://127.0.0.1:11434"
 EMBED_MODEL = "bge-m3"
 CHAT_MODEL = CONFIG["chat_model"]
@@ -191,6 +197,49 @@ def pick_sources(text, hits):
     return cited or sources
 
 
+def parse_checks(text):
+    """'질문 | 답에 들어가야 할 말' 줄을 읽는다. 들어가야 할 말이 여러 개면 '/'로 나눈다. #으로 시작하면 설명 줄."""
+    cases = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        q, _, keys = line.partition("|")
+        cases.append((q.strip(), [k.strip() for k in keys.split("/") if k.strip()]))
+    return cases
+
+
+def judge(result, keys):
+    if keys == [NONE_MARK]:
+        return "찾지 못했" in result["answer"] and not result["sources"]
+    return bool(keys) and all(k in result["answer"] for k in keys)
+
+
+def run_checks(cases, items, with_answer):
+    """확인 질문을 차례로 묻고 한 줄씩 결과를 내보낸 뒤, 결과표를 CSV로 저장한다."""
+    rows = []
+    for i, (q, keys) in enumerate(cases, 1):
+        t = time.time()
+        r = answer(q, items)
+        row = {"번호": i, "질문": q, "들어가야 할 말": " / ".join(keys) or "(안 적음)",
+               "결과": "통과" if judge(r, keys) else "실패", "근거 문서": ", ".join(s["doc"] for s in r["sources"]),
+               "걸린 시간(초)": round(time.time() - t, 1), "답변": r["answer"]}
+        rows.append(row)
+        yield {"row": row, "total": len(cases)}
+    CHECK_RESULTS.mkdir(exist_ok=True)
+    path = CHECK_RESULTS / f"점검결과_{time.strftime('%Y%m%d_%H%M')}.csv"
+    out = io.StringIO()
+    passed = sum(r["결과"] == "통과" for r in rows)
+    out.write(f"# 점검 일시 {time.strftime('%Y-%m-%d %H:%M')}, 통과 {passed}/{len(rows)}, 모델 {CHAT_MODEL}, "
+              f"추론 모드 {'켬' if THINK else '끔'}, 문서 {len({it['doc'] for it in items})}개\n")
+    cols = [c for c in rows[0] if with_answer or c != "답변"] if rows else []
+    w = csv.DictWriter(out, cols, extrasaction="ignore")
+    w.writeheader()
+    w.writerows(rows)
+    path.write_text(out.getvalue(), encoding="utf-8-sig")  # 엑셀에서 한글이 깨지지 않게 BOM
+    yield {"done": True, "passed": passed, "total": len(rows), "saved": f"{CHECK_RESULTS.name}\\{path.name}"}
+
+
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>사내 규정 도우미</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f7f1e7;color:#362f26;font-family:"Malgun Gothic",system-ui,sans-serif}
@@ -206,6 +255,11 @@ details{margin-top:6px}summary{cursor:pointer}pre{white-space:pre-wrap;backgroun
 .drop{display:block;border:2px dashed #c9bda9;border-radius:10px;padding:16px;text-align:center;color:#685e51;font-size:14px;margin:6px 0 10px;cursor:pointer}
 .drop.on{background:#efe6d6}#st{font-size:13px;min-height:18px;margin-bottom:8px;white-space:pre-wrap}
 ul{list-style:none;padding:0;margin:0 0 12px;max-height:260px;overflow:auto}li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #ece4d6;font-size:14px}
+#ck{margin:0 0 16px;background:#fffaf2;border:1px solid #d6ccbd;border-radius:14px;padding:4px 18px}#ck>summary{padding:10px 0;font-weight:700}
+textarea{width:100%;min-height:150px;padding:10px;border:1px solid #d6ccbd;border-radius:10px;font:14px/1.5 "Malgun Gothic",sans-serif;background:#fff}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px;font-size:13px}.row button{padding:8px 14px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}td,th{border-top:1px solid #ece4d6;padding:6px 4px;text-align:left;vertical-align:top}
+.ok{color:#3d6b35;font-weight:700;white-space:nowrap}.ng{color:#a0462f;font-weight:700;white-space:nowrap}
 li span{overflow-wrap:anywhere}li small{color:#9a8f80}li button{padding:4px 10px;font-size:13px;background:#a0624f;flex:none}</style>
 <main><span class=badge>인터넷 연결 없이 이 PC에서만 실행</span><h1>사내 규정 도우미</h1>
 <p class=sub>__COMPANY__ 규정 문서 <b id=cnt>__COUNT__</b>개에서 찾아 답하고, 근거 문서를 함께 보여 줍니다.</p>
@@ -213,6 +267,12 @@ li span{overflow-wrap:anywhere}li small{color:#9a8f80}li button{padding:4px 10px
 <label class=drop id=drop>여기로 파일을 끌어 놓거나 눌러서 고르세요<br><small>PDF·TXT·MD, 여러 개 가능. 한글·워드·엑셀은 PDF로 저장해서 올려 주세요.</small>
 <input type=file id=file multiple accept=".pdf,.txt,.md" hidden></label>
 <div id=st></div><ul id=docs></ul></details>
+<details id=ck><summary>답변 점검 (확인 질문 결과표)</summary>
+<p class=sub style="margin:4px 0 8px">한 줄에 하나씩 <b>질문 | 답에 들어가야 할 말</b>로 적습니다. 여러 개면 /로 나누고, 문서에 없는 질문은 (없음)이라고 적습니다.</p>
+<textarea id=cq spellcheck=false></textarea>
+<div class=row><button id=crun>모두 실행</button><button id=csave style="background:#8a7f6e">질문 저장</button>
+<label><input type=checkbox id=cans> 결과표에 답변 내용도 넣기</label></div>
+<div id=cst></div><table id=ctab></table></details>
 <form id=f><input id=q placeholder="궁금한 규정을 물어보세요" autocomplete=off><button>질문</button></form>
 <div id=log></div><p class=warn>AI가 틀릴 수 있습니다. 중요한 내용은 근거 문서를 확인하세요.</p></main>
 <script>
@@ -230,6 +290,16 @@ st.textContent=r.message;await loadDocs()}}
 file.onchange=()=>{upload([...file.files]);file.value=''};
 drop.ondragover=e=>{e.preventDefault();drop.classList.add('on')};drop.ondragleave=()=>drop.classList.remove('on');
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove('on');upload([...e.dataTransfer.files])};loadDocs();
+const cq=document.getElementById('cq'),cst=document.getElementById('cst'),ctab=document.getElementById('ctab');
+fetch('/checks').then(r=>r.json()).then(r=>cq.value=r.text);
+document.getElementById('csave').onclick=async()=>{const r=await fetch('/checks/save',{method:'POST',headers:H,body:JSON.stringify({text:cq.value})}).then(r=>r.json());cst.textContent=r.message};
+document.getElementById('crun').onclick=async()=>{const b=document.getElementById('crun');b.disabled=true;ctab.innerHTML='<tr><th>#<th>질문<th>결과<th>답변<th>초</tr>';cst.textContent='점검 중… 질문 수에 따라 몇 분 걸릴 수 있어요';
+try{const res=await fetch('/checks/run',{method:'POST',headers:H,body:JSON.stringify({text:cq.value,with_answer:document.getElementById('cans').checked})}),rd=res.body.getReader(),dec=new TextDecoder();let buf='';
+for(;;){const {done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
+while((i=buf.indexOf('\\n'))>=0){const m=JSON.parse(buf.slice(0,i));buf=buf.slice(i+1);
+if(m.row){const x=m.row;ctab.insertAdjacentHTML('beforeend','<tr><td>'+x['번호']+'<td>'+esc(x['질문'])+'<br><small>기대: '+esc(x['들어가야 할 말'])+'</small><td class='+(x['결과']=='통과'?'ok':'ng')+'>'+x['결과']+'<td>'+esc(x['답변'])+'<td>'+x['걸린 시간(초)']+'</tr>');cst.textContent='점검 중… '+x['번호']+'/'+m.total}
+if(m.done)cst.innerHTML='<b>통과 '+m.passed+'/'+m.total+'</b> · 결과표 저장: 프로그램 폴더의 '+esc(m.saved)+'<br><small>월 관리 점검 때 이 파일을 크몽 메시지로 보내 주세요. 답변 내용을 넣지 않으면 회사 문서 내용은 들어가지 않습니다.</small>';
+if(m.message)cst.textContent=m.message}}}catch(err){cst.textContent='점검을 끝내지 못했습니다. 검은 창이 켜져 있는지 확인해 주세요.'}b.disabled=false};
 f.onsubmit=async e=>{e.preventDefault();const text=q.value.trim();if(!text)return;q.value='';
 const box=document.createElement('div');box.className='qa';box.innerHTML='<div class=q>Q. '+esc(text)+'</div><div class=a>규정을 찾는 중…</div>';
 log.prepend(box);const a=box.querySelector('.a'),t0=Date.now(),tick=setInterval(()=>{if(!started)a.dataset.s=Math.round((Date.now()-t0)/1000)},1000);
@@ -330,6 +400,9 @@ def serve(items, port=CONFIG["port"]):
         def do_GET(self):
             if self.path == "/docs":
                 self._json({"docs": doc_list()})
+            elif self.path == "/checks":
+                self._json({"text": CHECKS.read_text(encoding="utf-8-sig") if CHECKS.exists() else
+                            "# 예: 연차는 1년에 며칠이에요? | 15일\n"})
             else:
                 self._send(page, "text/html; charset=utf-8")
 
@@ -343,6 +416,15 @@ def serve(items, port=CONFIG["port"]):
             body = self.rfile.read(size)
             if self.path == "/ask":
                 return self._stream(answer_stream(json.loads(body)["q"], state["items"]))
+            if self.path == "/checks/save":
+                CHECKS.write_text(json.loads(body)["text"], encoding="utf-8-sig")
+                return self._json({"message": f"{CHECKS.name}에 저장했습니다."})
+            if self.path == "/checks/run":
+                req = json.loads(body)
+                cases = parse_checks(req["text"])
+                if not cases:
+                    return self._stream([{"message": "질문이 없습니다. '질문 | 들어가야 할 말' 형식으로 적어 주세요."}])
+                return self._stream(run_checks(cases, state["items"], req.get("with_answer", False)))
             try:
                 with lock:
                     if self.path == "/upload":
