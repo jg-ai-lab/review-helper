@@ -20,7 +20,7 @@ PREDS = DEMO / "openimages" / "preds"
 sys.path.insert(0, str(HERE))
 from render_details import CSS, e, shoot, stack  # noqa: E402
 
-GOOD = ["caa44bce1d51cee3", "b426e52fccedea01", "600d910af3cbb842"]  # 개수를 정확히 맞힌 시험 사진(상표가 크게 안 보이는 것)
+GOOD = ["ecda061a268f9065", "b426e52fccedea01", "600d910af3cbb842"]  # 개수를 정확히 맞힌 시험 사진(상표가 크게 안 보이는 것)
 BAD = "92c6701835d2a3ee"  # 놓친 사례: 선반 위 유리병
 TAG = "사진 속 물건 찾아 세기"
 NOTE = "사진: Open Images(Flickr, CC BY 2.0), 탐지 상자를 그려 넣음 · 최종 범위·비용·일정은 착수 전 합의합니다"
