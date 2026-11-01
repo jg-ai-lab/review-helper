@@ -5,3 +5,6 @@ products/vision-demo/photos/*
 !products/vision-demo/photos/.gitkeep
 products/local-llm-demo/index.json
 products/local-llm-demo/dist/
+products/receipt-ocr-demo/docs/
+products/receipt-ocr-demo/photos/*
+!products/receipt-ocr-demo/photos/.gitkeep
