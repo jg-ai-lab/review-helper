@@ -14,3 +14,7 @@ products/receipt-ocr-demo/photos_synth*/
 products/vision-demo/openimages/
 products/receipt-ocr-demo/results/*_ocr.json
 practice/excel/work/*.xlsx
+products/vision-demo/package/model.onnx
+products/vision-demo/package/결과/
+products/vision-demo/package/사진넣기/
+products/vision-demo/dist/
