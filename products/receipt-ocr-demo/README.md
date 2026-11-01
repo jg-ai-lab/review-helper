@@ -36,8 +36,29 @@
 4. 사진은 `photos\`에 넣습니다. 파일 이름은 그대로 둬도 됩니다(문서번호는 사진에서 읽음). 카톡으로 옮기면 화질이 떨어지니 USB·케이블이나 원본 전송을 씁니다.
 5. 사진에 다른 사람 얼굴·개인 서류가 나오지 않게 합니다.
 
-## 다음 단계 (사진이 들어오면)
+## 합성 사진 (2026-11-01, 실제 촬영 전 대신 씀)
 
-- 이 PC에서 로컬 OCR(PaddleOCR 등)로 사진 → 엑셀 변환
-- `정답.json`과 칸 단위로 비교해 정확도 기록(날짜·거래처·품목·수량·단가·금액·합계 각각)
-- 품목 금액 합과 문서 합계가 다르면 '확인 필요'로 표시되는지 확인
+```powershell
+.venv-ocr\Scripts\python.exe products\receipt-ocr-demo\make_photos.py
+```
+
+`photos_synth\E01.jpg~E20.jpg`를 만듭니다. 문서 그림을 책상 위에 놓고 위 표와 같은 조건(정면·기울기·그림자·구김·멀리서)으로 찍은 것처럼 바꾼 합성 사진입니다. 홍보물에는 "합성 사진으로 시험"이라고 밝히고, 실제 촬영 사진 결과가 생기면 그것으로 바꿉니다.
+
+## 사진 → 엑셀 변환과 채점
+
+OCR은 PaddleOCR(Apache-2.0)을 이 PC에서 돌리며 사진을 인터넷으로 보내지 않습니다. D 납품 환경과 섞이지 않게 별도 가상환경을 씁니다.
+
+```powershell
+.venv\Scripts\python.exe -m venv .venv-ocr
+.venv-ocr\Scripts\python.exe -m pip install paddlepaddle paddleocr openpyxl
+.venv-ocr\Scripts\python.exe products\receipt-ocr-demo\ocr_to_excel.py photos_synth
+```
+
+- 결과: `results\photos_synth_변환결과.xlsx`(문서·품목·확인 필요·정확도 시트), `results\photos_synth_정확도.md`
+- `--reuse`: OCR을 다시 돌리지 않고 저장해 둔 인식 결과(`results\*_ocr.json`)로 정리·채점만 다시 함
+- `--fast`: 가벼운 모델(CPU에서 장당 6~10초, 표준 모델은 54초인데 더 정확하지도 않아 기본으로 권장)
+- `--raw`: 보정 없이 채점. 기본 보정은 ① 수량을 못 읽으면 금액÷단가로 채움 ② `docs\품목목록.txt`(고객 단가표 역할)로 품목 이름을 자모 단위로 아주 비슷한 것으로 고침. 고친 칸은 모두 '확인 필요'에 남김
+- **처음 보는 문서로 다시 재기:** 읽기 규칙을 고친 뒤에는 `make_docs.py 2` → `make_photos.py 2` → `ocr_to_excel.py photos_synth2 --fast`처럼 새 세트(다른 SEED)로 잽니다. 세트1은 규칙을 맞춘 문서라 점수가 부풀려집니다.
+- 결과 요약(2026-11-01): 세트2 합성 사진 칸 95.9%, 20장 중 19장 모든 칸 정답, 장당 8초. 표는 `MARKETPLACE.md` 서비스 E
+- Windows CPU에서 paddlepaddle 3.3은 oneDNN 오류가 나서 `enable_mkldnn=False`로 끕니다.
+- '확인 필요' 기준: 수량×단가 ≠ 금액, 품목 금액 합 ≠ 문서 합계, 공급가액+세액 ≠ 합계, 인식 점수 0.85 미만, 빈 칸

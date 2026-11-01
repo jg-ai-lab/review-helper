@@ -1,7 +1,9 @@
 """서비스 E 데모용 가상 거래명세서 12장·영수증 8장과 정답지를 만드는 스크립트.
 
-사용법: python make_docs.py
-docs/ 폴더에 문서 그림(E01.png~E20.png), 인쇄용 인쇄용_20장.pdf, 정답.xlsx, 정답.json을 만듭니다.
+사용법: python make_docs.py [시험세트번호]
+번호(예: 2)를 주면 docs2/에 다른 SEED로 새 문서 세트를 만듭니다(규칙을 고친 뒤 처음 보는 문서로 다시 재기용).
+docs/ 폴더에 문서 그림(E01.png~E20.png), 인쇄용 인쇄용_20장.pdf, 정답.xlsx, 정답.json,
+고객 단가표 역할의 품목목록.txt를 만듭니다.
 모든 상호·주소는 가상입니다. 사업자번호는 실제로 쓰이지 않는 000으로 시작하고,
 전화번호는 010-0000-XXXX 형식만 씁니다.
 """
@@ -16,8 +18,9 @@ from openpyxl.styles import Font
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = Path(__file__).parent
-OUT = HERE / "docs"
-SEED = 20261101
+SET = next((int(a) for a in sys.argv[1:] if a.isdigit()), 0)  # 시험 세트 번호: 2를 주면 docs2/·다른 SEED로 새 세트
+OUT = HERE / f"docs{SET or ''}"
+SEED = 20261101 + SET
 DPI = 150
 A4 = (1240, 1754)  # 150dpi A4
 FONT = "C:/Windows/Fonts/malgun.ttf"
@@ -219,6 +222,9 @@ def main():
         pages.append(page)
     pages[0].save(OUT / "인쇄용_20장.pdf", save_all=True, append_images=pages[1:], resolution=DPI)
     save_answer(docs)
+    # 고객이 함께 주는 거래처 단가표를 흉내 낸 품목 목록 (OCR 품목 이름 보정용, 정답지와 별개)
+    names = sorted({it[0] for *_, cat in SUPPLIERS + STORES for it in cat})
+    (OUT / "품목목록.txt").write_text("\n".join(names) + "\n", encoding="utf-8")
     items = sum(len(d["품목"]) for d in docs)
     print(f"문서 {len(docs)}장, 품목 줄 {items}개, 합계 {won(sum(d['합계'] for d in docs))}원 → {OUT}")
 

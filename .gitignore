@@ -1,10 +1,14 @@
 __pycache__/
 .venv/
+.venv-ocr/
 
 products/vision-demo/photos/*
 !products/vision-demo/photos/.gitkeep
 products/local-llm-demo/index.json
 products/local-llm-demo/dist/
-products/receipt-ocr-demo/docs/
+products/receipt-ocr-demo/docs*/
 products/receipt-ocr-demo/photos/*
 !products/receipt-ocr-demo/photos/.gitkeep
+products/receipt-ocr-demo/photos_synth*/
+products/vision-demo/openimages/
+products/receipt-ocr-demo/results/*_ocr.json
