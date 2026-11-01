@@ -107,8 +107,8 @@ def write_oct(rng, orders, sep_last, issues, final):
     serial = lambda d: (d - date(1899, 12, 30)).days
     for i, o in enumerate(orders):
         if i in (4, 10):
+            issues.append(("10월", ws.max_row + 1, "빈 행", "제외"))  # 빈 행은 max_row에 잡히지 않으므로 먼저 계산
             ws.append([])
-            issues.append(("10월", ws.max_row, "빈 행", "제외"))
         amount = PRICES[o["product"]] * o["qty"]
         ws.append([serial(o["date"]), o["name"], phone(o["tail"], i + 2), alias(rng, o["product"]),
                    o["qty"], amount, o["pay"], None])
