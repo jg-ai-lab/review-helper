@@ -29,6 +29,8 @@ CLASSES = ["배경", "캔", "병"]
 COCO_BOTTLE = 44  # COCO 클래스 번호 'bottle'
 SEED = 20261101
 EPOCHS = 24
+SIZE = 800  # 사진 긴 변. 크면 그래픽카드 메모리가 넘쳐 매우 느려지고 PC 메모리까지 부족해짐
+BATCH = 2
 SCORE = 0.5  # 이 점수 이상인 상자만 '찾았다'로 셈
 IOU = 0.5
 
@@ -40,11 +42,19 @@ def load():
     return items[:cut], items[cut:]
 
 
+def small(p):
+    """긴 변 SIZE로 줄인 사진을 한 번만 만들어 두고 쓴다."""
+    path = DATA / f"images_{SIZE}" / f"{p['id']}.jpg"
+    if not path.exists():
+        path.parent.mkdir(exist_ok=True)
+        img = Image.open(DATA / "images" / f"{p['id']}.jpg").convert("RGB")
+        img.thumbnail((SIZE, SIZE), Image.LANCZOS)
+        img.save(path, quality=92)
+    return Image.open(path).convert("RGB")
+
+
 def sample(p, train):
-    img = Image.open(DATA / "images" / f"{p['id']}.jpg").convert("RGB")
-    scale = 1024 / max(img.size)
-    if scale < 1:
-        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.BILINEAR)
+    img = small(p)
     w, h = img.size
     boxes = torch.tensor([[b["xmin"] * w, b["ymin"] * h, b["xmax"] * w, b["ymax"] * h] for b in p["boxes"]])
     labels = torch.tensor([CLASSES.index(b["label"]) for b in p["boxes"]])
@@ -56,7 +66,7 @@ def sample(p, train):
 
 
 def build(pretrained_only=False):
-    model = fasterrcnn_resnet50_fpn_v2(weights=FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1)
+    model = fasterrcnn_resnet50_fpn_v2(weights=FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1, min_size=SIZE, max_size=SIZE)
     if not pretrained_only:
         model.roi_heads.box_predictor = FastRCNNPredictor(model.roi_heads.box_predictor.cls_score.in_features, len(CLASSES))
     return model
@@ -67,20 +77,24 @@ def train(model, items, dev):
     params = [p for p in model.parameters() if p.requires_grad]
     opt = torch.optim.SGD(params, lr=0.01, momentum=0.9, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.MultiStepLR(opt, [16, 21], 0.1)
+    scaler = torch.amp.GradScaler(dev.type, enabled=dev.type == "cuda")
     for ep in range(EPOCHS):
         random.shuffle(items)
         t, total = time.time(), 0.0
-        for i in range(0, len(items), 4):
-            batch = [sample(p, True) for p in items[i:i + 4]]
+        for i in range(0, len(items), BATCH):
+            batch = [sample(p, True) for p in items[i:i + BATCH]]
             xs = [b[1].to(dev) for b in batch]
             ys = [{k: v.to(dev) for k, v in b[2].items()} for b in batch]
-            loss = sum(model(xs, ys).values())
+            with torch.autocast(dev.type, enabled=dev.type == "cuda"):  # 반정밀도로 메모리 절약
+                loss = sum(model(xs, ys).values())
             opt.zero_grad()
-            loss.backward()
-            opt.step()
+            scaler.scale(loss).backward()
+            scaler.step(opt)
+            scaler.update()
             total += loss.item()
         sched.step()
-        print(f"  {ep + 1}/{EPOCHS}회 손실 {total / (len(items) / 4):.3f} ({time.time() - t:.0f}초)", flush=True)
+        mem = torch.cuda.max_memory_allocated() / 2**30 if dev.type == "cuda" else 0
+        print(f"  {ep + 1}/{EPOCHS}회 손실 {total / (len(items) / BATCH):.3f} ({time.time() - t:.0f}초, 그래픽 메모리 최대 {mem:.1f}GB)", flush=True)
 
 
 @torch.no_grad()
@@ -122,13 +136,10 @@ def evaluate(model, items, dev, coco=False):
 
 def draw(per_image, out_dir):
     out_dir.mkdir(exist_ok=True)
-    font = ImageFont.truetype("C:/Windows/Fonts/malgunbd.ttf", 26)
+    font = ImageFont.truetype("C:/Windows/Fonts/malgunbd.ttf", 22)
     colors = {1: (230, 120, 40), 2: (40, 140, 220)}
     for r in per_image:
-        img = Image.open(DATA / "images" / f"{r['id']}.jpg").convert("RGB")
-        scale = 1024 / max(img.size)
-        if scale < 1:
-            img = img.resize((round(img.width * scale), round(img.height * scale)), Image.BILINEAR)
+        img = small({"id": r["id"]})
         g = ImageDraw.Draw(img)
         for b, l, s in zip(r["boxes"], r["labels"], r["scores"]):
             g.rectangle(b, outline=colors[l], width=4)
@@ -141,7 +152,7 @@ def draw(per_image, out_dir):
 def report(name, stat, per_image, sec, n_train, n_test, train_min, coco_stat):
     lines = [f"# 캔·병 찾기 모델 시험 결과 ({name})", "",
              f"- 사진: Open Images V7 (CC BY 2.0 표시, 출처 `ATTRIBUTION.md`) 학습 {n_train}장 / **처음 보는 시험 사진 {n_test}장**",
-             f"- 모델: torchvision Faster R-CNN ResNet50-FPN v2, COCO 가중치에서 {EPOCHS}회 학습"
+             f"- 모델: torchvision Faster R-CNN ResNet50-FPN v2, COCO 가중치에서 {EPOCHS}회 학습(사진 긴 변 {SIZE}px)"
              + (f" ({train_min:.1f}분, RTX 4070 Ti)" if train_min else ""),
              f"- 기준: 점수 {SCORE} 이상 상자, 정답 상자와 겹침(IoU) {IOU} 이상이면 맞음. 사진 한 장 처리 {sec * 1000:.0f}ms(그래픽카드)", "",
              "| 대상 | 정답 상자 | 찾은 비율(재현율) | 맞힌 비율(정밀도) |", "| --- | --- | --- | --- |"]
@@ -155,7 +166,7 @@ def report(name, stat, per_image, sec, n_train, n_test, train_min, coco_stat):
         exact = sum(r["counts"][c][0] == r["counts"][c][1] for r in imgs)
         within1 = sum(abs(r["counts"][c][0] - r["counts"][c][1]) <= 1 for r in imgs)
         if imgs:
-            lines.append(f"\n- {c} 개수: {c}가 있는 시험 사진 {len(imgs)}장 중 정확히 맞힘 {exact}장, ±1개 이내 {within1}장")
+            lines.append(f"\n- {c} 개수: {c}이 있는 시험 사진 {len(imgs)}장 중 정확히 맞힘 {exact}장, ±1개 이내 {within1}장")
     if coco_stat:
         s = coco_stat["병"]
         n = s["tp"] + s["fn"]

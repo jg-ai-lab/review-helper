@@ -26,3 +26,16 @@
 - 한 번에 몰아 찍기보다 위치·개수를 바꿀 때마다 2~3장씩 찍습니다. 거의 같은 사진이 많으면 성능이 실제보다 좋게 나옵니다.
 - 사진은 USB·케이블로 원본을 옮깁니다(카톡은 화질 저하).
 - 상품 종류 이름을 정해 알려 주세요(예: 콜라캔, 사이다캔, 감자칩, 초코과자). 자동 라벨링 문구로 씁니다.
+
+## Open Images로 학습·시험 (2026-11-01)
+
+```powershell
+.venv\Scripts\python.exe products\vision-demo\fetch_openimages.py        # 캔·병 사진 213장 + ATTRIBUTION.md
+.venv\Scripts\python.exe -m venv .venv-vision
+.venv-vision\Scripts\python.exe -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+.venv-vision\Scripts\python.exe products\vision-demo\train_detector.py   # 학습 → results\정확도.md, openimages\preds\
+```
+
+- 학습 전에 `ollama stop qwen3:8b`로 그래픽 메모리를 비웁니다. 사진 긴 변 800px·2장 묶음·반정밀도로 그래픽 메모리 약 1.7GB, 24회 4.5분(RTX 4070 Ti).
+- 결과는 [`results/정확도.md`](results/정확도.md). Open Images 라벨이 모든 물건을 표시하지 않아 정밀도는 실제보다 낮게 나옵니다.
+- 홍보 이미지: `marketing/kmong/render_vision.py` (사진마다 작성자·CC BY 2.0 표기)
